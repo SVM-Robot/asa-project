@@ -1,0 +1,50 @@
+
+https://github.com/unitn-ASA/Deliveroo.js
+
+
+Play on the cloud: https://deliveroojs.onrender.com/
+https://deliveroojs2.onrender.com/ https://deliveroojs3.onrender.com/
+
+git clone https://github.com/unitn-ASA/Deliveroo.js.git
+npm install
+node index.js level_1 
+node index.js challenge_1_copy
+
+
+(or level_2 , any other config file in ./levels)
+npm run dev to load environment variables from .env file:
+
+npm install @unitn-asa/deliveroo-js-client
+
+git clone https://github.com/unitn-ASA/DeliverooAgent.js
+
+
+
+-- for new folder/new project:
+
+- empty folder,
+npm init
+	
+npm install @unitn-asa/pddl-client@0.0.37
+
+node filename.js
+
+	
+	
+var myMap = 
+[[2, 3, 2], 	// '0' are blocked tiles (empty or not_tile)
+[0, 3, 0], 		// '1' are walkable spawning tiles
+[1, 3, 1] ] 	// '2' are delivery tiles
+				// '3' are walkable non-spawning tiles
+				
+				
+				
+http://rtibdi.disi.unitn.it:8080
+				
+PLANNER:
+				
+npm install @unitn-asa/pddl-client@0.0.37
+
+RL:
+...
+npm run train
