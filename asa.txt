@@ -45,6 +45,17 @@ PLANNER:
 				
 npm install @unitn-asa/pddl-client@0.0.37
 
+Dear all,
+
+here the correct steps to run the planner locally.
+
+As specified in planning-as-a-service/server/Makefile, it isnecessary first to build a local planutils:latest (FROM aiplanning/planutils:latest) using the server/Makefile and the run docker compose:
+
+docker build -t planutils:latest .
+docker-compose up -d --build 
+
+I was missing the "make" step
+
 RL:
 ...
 npm run train
