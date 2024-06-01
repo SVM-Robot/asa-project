@@ -1,4 +1,5 @@
 import { DeliverooApi } from "@unitn-asa/deliveroo-js-client";
+import { onlineSolver, PddlExecutor, PddlProblem, Beliefset, PddlDomain, PddlAction } from "@unitn-asa/pddl-client";
 
 //import { default as config } from "./config.js";
 //const client = new DeliverooApi( config.host, config.token )
