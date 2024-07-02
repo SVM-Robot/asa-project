@@ -1,3 +1,37 @@
+-----
+PPDL
+------
+
+-------------------------------------------------------------------------
+PDDL TODO:
+-------------------------------------------------------------------------
+
+
+CHECK COORDINATE!!
+
+
+
+- passing the map (rn it's passed artificially)  					--> should be FIXED
+- check initialize_map (blocked, other things, etc)
+
+- i think rn the map in initialize_map gets recreated all the time. --> should be FIXED
+
+
+
+
+
+
+
+
+
+-------------------------------------------------------------------------
+after myAgent.loop() I've put const pathPlanning = new PathPlanning(map);
+
+in class BindMove:
+        //pathPlanning.updateTarget(me.x, me.y, x, y);
+        //pathPlanning.planAndExecute();
+
+-------------------------------------------------------------------------
 
 https://github.com/unitn-ASA/Deliveroo.js
 
@@ -36,6 +70,9 @@ var myMap =
 [0, 3, 0], 		// '1' are walkable spawning tiles
 [1, 3, 1] ] 	// '2' are delivery tiles
 				// '3' are walkable non-spawning tiles
+				
+				
+'0' are blocked tiles (empty or not_tile), '1' are walkable spawning tiles, '2' are delivery tiles, '3' are walkable non-spawning tiles
 				
 				
 				

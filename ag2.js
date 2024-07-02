@@ -1,7 +1,6 @@
 import { DeliverooApi } from "@unitn-asa/deliveroo-js-client";
 import { onlineSolver, PddlExecutor, PddlProblem, Beliefset, PddlDomain, PddlAction } from "@unitn-asa/pddl-client";
 import fs from 'fs';
-
 //import { default as config } from "./config.js";
 //const client = new DeliverooApi( config.host, config.token )
 
@@ -23,75 +22,104 @@ function read_pddl_File ( path ) {
         })
     })
 }
-
+const domain = await read_pddl_File('domain-d.pddl' );
 
 // Define executors for actions in your plan
 const executors = [
-  {
-    name: 'left',
-    executor: () => client.move('left')
-},
-{
-    name: 'right',
-    executor: () => client.move('right')
-},
-{   
-    name: 'up',
-    executor: () => client.move('up')
-},  
-{
-    name: 'down', 
-    executor: () => client.move('down')
-},
+    { name: 'left', executor: () => client.move('left')},
+    { name: 'right', executor: () => client.move('right')},
+    { name: 'up', executor: () => client.move('up')},  
+    { name: 'down', executor: () => client.move('down')},
 ];
 
 class PathPlanning {
 
-    constructor(map, agent_id) {
-      this.agent_id = `id_${agent_id}`;
-      this.map = map;
-      this.objects = `me ${this.agent_id} `;
-      this.init = `(me ${this.agent_id})`;
-      this.init0 = `(me ${this.agent_id})`;
-      this.initializeMap();
-      
+    //constructor(agent_id) {
+      //this.agent_id = `id_${agent_id}`;
+      //this.map = map;
+      //this.objects = `me ${this.agent_id} `;
+      //this.init = `(me ${this.agent_id})`;
+      //this.init0 = `(me ${this.agent_id})`;
+      //this.initializeMap();}
+
+    constructor() {
+    //constructor(agent_id) {
+        this.agent_id = '';
+        this.objects = '';
+        this.init = '';
+        this.init0 = '';
+        this.initializeMap();
+        this.isPlanning = false;
     }
 
+    // The initializeMap function is used to create the objects and initial state of the PDDL problem.
+    // It firsts recreate internally the map from the tiles received from the server.
+    // After that 'converts' it to PDDL objects and initial state.
+    // It gets called only once since map stays the same during the game.
     initializeMap() {
+
+        console.log('MAP INITIALIZATION');
+        const blockedTiles = map.blkd();
+        const spawnableTiles = map.spwn();
+        const deliveryTiles = map.deliv();
+        const matrix = Array.from({ length: map.height }, () => Array(map.width).fill(3));
+        blockedTiles.forEach(tile => {
+            matrix[tile.x][tile.y] = 0;
+            });
+        spawnableTiles.forEach(tile => {
+            matrix[tile.x][tile.y] = 1;
+            });
+        deliveryTiles.forEach(tile => {
+            matrix[tile.x][tile.y] = 2;
+            });
+
+        // !!
+    
+        //this.map = matrix.slice().reverse().map(row => row.slice());
+        this.map = matrix;
+        //
 
         for (let y = 0; y < this.map.length; y++) {
             for (let x = 0; x < this.map[y].length; x++) {
                 const tileName = `t${x}_${y}`;
                 this.objects += `tile ${tileName} `;
-                switch (this.map[y][x]) {
-                    case 0: // Blocked, no specific action needed as blocked tiles are simply not walkable
+                switch (this.map[x][y]) {
+
+                    //0 = blocked (empty or not_tile), 1 = walkable spawning, 2 = delivery, 3 = walkable non-spawning.
+                    case 0:
                         this.init0 += `(blocked ${tileName})`;
                         break;
-                    case 1: // Walkable spawning, no specific predicate for spawning in PDDL provided
-                    case 3: // Walkable non-spawning
-                        // Assuming walkable tiles are simply tiles not declared as anything else
+                    case 1: 
+                        //this.init0 += `(spawn ${tileName})`;
                         break;
-                    case 2: // Delivery
+                    case 3:
+                        break;
+                    case 2:
                         this.init0 += `(delivery ${tileName})`;
                         break;
                 }
+
                 // Add directional relationships
                 if (x > 0) this.init0 += `(right t${x-1}_${y} ${tileName})(left ${tileName} t${x-1}_${y})`;
                 if (y > 0) this.init0 += `(up t${x}_${y-1} ${tileName})(down ${tileName} t${x}_${y-1})`;
             }
         }
-
         this.init += this.init0;
     }
 
+    // called every time a new target is set.
+    // important is the reset of init to init0, otherwise the init would grow indefinitely, including all previous targets.
+    updateTarget(agentID, startX, startY, targetX, targetY) {
 
+            
+            this.agent_id = `id_${agentID}`;
+            this.objects += `me ${this.agent_id} `
+            this.init = `(me ${this.agent_id})` + this.init0;
 
-    updateTarget(startX, startY, targetX, targetY) {
-
-            this.init = this.init0;
             this.startX = startX;
             this.startY = startY;
             this.init += `(at ${this.agent_id} t${this.startX}_${this.startY})`;
+
             this.targetX = targetX;
             this.targetY = targetY;
     }   
@@ -100,7 +128,6 @@ class PathPlanning {
     generateProblemDefinition() {
 
         const goal = `at ${this.agent_id} t${this.targetX}_${this.targetY}`;
-        //const goal = `at ${this.agent_id} t${this.startX+1}_${this.startY+1}`;
         console.log('Goal:', goal);
 
         var pddlProblem = new PddlProblem(
@@ -109,31 +136,39 @@ class PathPlanning {
             this.init,
             goal
         )
-
         let problem = pddlProblem.toPddlString();
         return problem
       }
   
 
     async planAndExecute() {
-      try {
 
-        const problem = this.generateProblemDefinition();
-        const domain = await read_pddl_File('domain-d.pddl' );
-        const plan = await onlineSolver(domain, problem);
-        const pddlExecutor = new PddlExecutor(...executors);
+        if (this.isPlanning) {
+            console.log('A plan is already in execution. Please wait or cancel the current plan before starting a new one.');
+            // here it woould be possible to drop the new plan or to queue it or to cancel the current one.
+            return; // Exit if a plan is currently being executed
+            }
+        this.isPlanning = true; // Mark as planning started
 
-        // await otherwise the plan is not executed because rest of the code is faster?
-        await pddlExecutor.exec(plan);
+        try {
 
-      } catch (error) {
-        console.error('Error during path planning:', error);
-      }
+            const problem = this.generateProblemDefinition();
+            // const domain = await read_pddl_File('domain-d.pddl' );  
+            // domain read at the beginning of the file, so it is not read every time a new plan is generated.     
+            const plan = await onlineSolver(domain, problem);
+            const pddlExecutor = new PddlExecutor(...executors);
+
+            // await otherwise the plan is not executed because rest of the code is faster?
+            await pddlExecutor.exec(plan);
+
+        } catch (error) {
+            console.error('Error during path planning:', error);
+        } finally {
+            this.isPlanning = false; // Reset planning state
+    
+        }
     }
 }
-
-
-
 
 // Things emerging from the 1st challenge:
 // - is spawnable? something about parcels always spawning in same place --> DONE
@@ -161,7 +196,9 @@ const client2 = new DeliverooApi(
 )
 
 
-
+// instantiate the path planning, this way it is available for all the plans and we can initialize
+// the map only once.
+var pathPlanning;
 
 
 function distance( {x:x1, y:y1}, {x:x2, y:y2}) {
@@ -192,6 +229,19 @@ function nearestDelivery(x4, y4) {
 
 /**Beliefset revision function*/
 
+
+//const me = {};
+const me = { carrying: new Map() };
+client.onYou( ( {id, name, x, y, score} ) => {
+    me.id = id
+    me.name = name
+    me.x = x
+    me.y = y
+    me.score = score
+    
+} )
+
+
 const map = {
     width:undefined,
     height:undefined,
@@ -208,6 +258,9 @@ const map = {
     },
     deliv: function () {
         return Array.from( this.tiles.values() ).filter( ({delivery}) => delivery )
+    },
+    blkd: function () {
+        return Array.from( this.tiles.values() ).filter( ({blocked}) => blocked )
     }
 };
 
@@ -217,7 +270,9 @@ client.onMap( (width, height, tiles) => {
     for (const t of tiles) {
         map.add( t );
     }
+    pathPlanning = new PathPlanning(me.id);
 } )
+
 
 client.onTile( (x, y, delivery) => {
     map.add( {x, y, delivery} );
@@ -225,18 +280,6 @@ client.onTile( (x, y, delivery) => {
 
 client.onNotTile( ( x, y ) => { 
     map.add( {x, y, blocked: true} );
-} )
-
-
-
-//const me = {};
-const me = { carrying: new Map() };
-client.onYou( ( {id, name, x, y, score} ) => {
-    me.id = id
-    me.name = name
-    me.x = x
-    me.y = y
-    me.score = score
 } )
 
 var AGENTS_OBSERVATION_DISTANCE
@@ -251,9 +294,6 @@ client.onConfig( (config) => {
     PARCEL_DECADING_INTERVAL = config.PARCEL_DECADING_INTERVAL//== '1s' ? 1000 : 1000000;
 } );
 
-if (PARCEL_DECADING_INTERVAL != 'infinite2'){
-    console.log('PARCEL_DECADING_INTERVAL:',PARCEL_DECADING_INTERVAL)
-}
 
 const agents = new Map();
 client.onAgentsSensing( ( sensed_agents ) => {
@@ -286,17 +326,10 @@ client.onParcelsSensing( async ( perceived_parcels ) => {
     }
 } )
 
-//client.onConfig( (param) => {
-    // console.log(param);
-//} )
 
-/** Options generation and filtering function */
 var reset1 = true;
 
 client.onParcelsSensing( parcels => {
-    // TODO revisit beliefset revision so to trigger option generation only in the case a new parcel is observed
-    /**Options generation*/
-    
 
     const options = []
     for (const parcel of parcels.values()) {
@@ -306,9 +339,9 @@ client.onParcelsSensing( parcels => {
             d5.push(distance({x:parcel.x,y:parcel.y},{x:a[1].x,y:a[1].y}))
         }
 
-        //if ( ! parcel.carriedBy && distance({x:parcel.x,y:parcel.y},{x:me.x,y:me.y}) <= Math.min(...d5)) {
-        // removed the condition on distance from agents. From challenge observed not good: agents are not moving, or standing still or 
-        // if other agents have a similar behaviour, then the condition is not useful.
+        // if ( ! parcel.carriedBy && distance({x:parcel.x,y:parcel.y},{x:me.x,y:me.y}) <= Math.min(...d5)) {
+        // removed the condition on distance from agents. From challenge it was observed that was not good: 
+        // agents are not moving, or standing still or if other agents have a similar behaviour, then the condition is not useful.
 
         if ( ! parcel.carriedBy) {
             options.push( [ 'go_pick_up', parcel.x, parcel.y, parcel.id]);
@@ -355,10 +388,8 @@ const beliefset = new Map();
 //client.onYou( agentLoop )
 
 
-
 /** Intention revision loop */
 class IntentionRevision {
-
 
     #intention_queue = new Array();
     get intention_queue () {
@@ -367,6 +398,7 @@ class IntentionRevision {
 
     async loop ( ) {
         while ( true ) {
+            
             // Consumes intention_queue if not empty
             if ( this.intention_queue.length > 0 ) {
                 console.log( 'intentionRevision.loop', this.intention_queue.map(i=>i.predicate) );
@@ -436,23 +468,12 @@ class IntentionRevisionReplace extends IntentionRevision {
     }
 }
 
-class IntentionRevisionRevise extends IntentionRevision {
-
-    async push ( predicate ) {
-        console.log( 'Revising intention queue. Received', ...predicate );
-        // TODO
-        // - order intentions based on utility function (reward - cost) (for example, parcel score minus distance)
-        // - eventually stop current one
-        // - evaluate validity of intention
-    }
-
-}
 
 /**Start intention revision loop*/
 
 // const myAgent = new IntentionRevisionQueue();
 const myAgent = new IntentionRevisionReplace();
-// const myAgent = new IntentionRevisionRevise();
+
 myAgent.loop();
 
 
@@ -577,11 +598,11 @@ class GoPickUp extends Plan {
         return go_pick_up == 'go_pick_up';
     }
     async execute ( go_pick_up, x, y ) {
-        if ( this.stopped ) throw ['stopped']; // if stopped then quit
+        if ( this.stopped ) throw ['stopped'];
         await this.subIntention( ['go_to', x, y] );
-        if ( this.stopped ) throw ['stopped']; // if stopped then quit
+        if ( this.stopped ) throw ['stopped'];
         await client.pickup()
-        if ( this.stopped ) throw ['stopped']; // if stopped then quit
+        if ( this.stopped ) throw ['stopped'];
         return true;
     }
 }
@@ -600,56 +621,9 @@ class GoDeliver extends Plan {
         return true;
     }
 }
-//const map2 = client.map
-const map30_o = [
-	[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0],
-	[0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-]
-
-const map3_o = [
-    [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-    [2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2]
-]
-
-const map3 = map3_o.slice().reverse().map(row => row.slice());
 
 
+// use_pddl == 0 will use the BlindMove, == 1 will use the PDDL_Move.
 class PDDL_Move extends Plan {
 
     static isApplicableTo ( go_to, x, y ) {
@@ -658,11 +632,12 @@ class PDDL_Move extends Plan {
 
     async execute ( go_to, x, y ) {
 
-        // Round x and y to the closest integer
+        // Round x and y to the closest integer because otherwise they wouldn't match the tile names in pddl objects.
 
-        const pathPlanning = new PathPlanning(map3, me.id);
-        pathPlanning.updateTarget(Math.round(me.x), Math.round(me.y),Math.round(x), Math.round(y));
-        pathPlanning.planAndExecute();
+        //const pathPlanning = new PathPlanning(me.id);
+        console.log('PDDL_Move', 'from', Math.round(me.x), Math.round(me.y), 'to', Math.round(x), Math.round(y));
+        pathPlanning.updateTarget(me.id, Math.round(me.x), Math.round(me.y), Math.round(x), Math.round(y));
+        await pathPlanning.planAndExecute();
 
         return true; 
     }
@@ -679,29 +654,29 @@ class BlindMove extends Plan {
         
 
         while ( me.x != x || me.y != y ) {
-            if ( this.stopped ) throw ['stopped']; // if stopped then quit
+            if ( this.stopped ) throw ['stopped']; 
             let status_x = false;
             let status_y = false; 
-            // this.log('me', me, 'xy', x, y);
+
             if ( x > me.x ){
                 status_x = await client.move('right');
             }
-                // status_x = await this.subIntention( 'go_to', {x: me.x+1, y: me.y} );
+
             else if ( x < me.x ){
                 status_x = await client.move('left');   
             }      
-                // status_x = await this.subIntention( 'go_to', {x: me.x-1, y: me.y} );
+
             if (status_x) {
                 me.x = status_x.x;
                 me.y = status_x.y;
             }
-            if ( this.stopped ) throw ['stopped']; // if stopped then quit
+            if ( this.stopped ) throw ['stopped'];
             if ( y > me.y )
                 status_y = await client.move('up')
-                // status_x = await this.subIntention( 'go_to', {x: me.x, y: me.y+1} );
+
             else if ( y < me.y )
                 status_y = await client.move('down')
-                // status_x = await this.subIntention( 'go_to', {x: me.x, y: me.y-1} );
+
             if (status_y) {
                 me.x = status_y.x;
                 me.y = status_y.y;
@@ -711,11 +686,15 @@ class BlindMove extends Plan {
                 await this.backtrack();
                 //throw 'stucked';
             } else if ( me.x == x && me.y == y ) {
-                // this.log('target reached');
+                console.log('target reached');
             }          
         }
         return true;
     }
+
+    // simple backtracking mechanism introduced to avoid getting stuck:
+    // it will perform n (=10) random moves and then continue with the original path.
+
     async backtrack() {
         console.log('BACKTRACKING')
         for (let i = 0; i < 10; i++) {
@@ -726,7 +705,6 @@ class BlindMove extends Plan {
         // Continue with the original path
         await this.execute(go_to, x, y);
     }
-
 }
 
 class ExplRandom extends Plan {
@@ -736,26 +714,28 @@ class ExplRandom extends Plan {
     }
     async execute ( go_pick_up, x, y ) {
 
-        // beofre challenge1 would pick a random cell
+        // before challenge1 it would pick a random tile
         var x_r0 = Math.floor(Math.random() * (map.width-1 - 0 + 1)) + 0;
         var y_r0 = Math.floor(Math.random() * (map.height-1 - 0 + 1)) + 0;
 
-
-        // picks a random spawnable parcel cell (possible to add closer or if)
+        // --> picks a random spawnable tile (possible to add closer spawnable tile or other conditions)
         let randomIndex = Math.floor(Math.random() * map.spwn().length);
         let selectedPoint = map.spwn()[randomIndex];
         var x_r = selectedPoint.x;
         var y_r = selectedPoint.y;
 
-        if ( this.stopped ) throw ['stopped']; // if stopped then quit
+        console.log('ExplRandom:', 'from' , me.x, me.y, 'to', x_r, y_r);
+
+        if ( this.stopped ) throw ['stopped'];
         await this.subIntention( ['go_to', x_r, y_r] );
-        if ( this.stopped ) throw ['stopped']; // if stopped then quit
+        if ( this.stopped ) throw ['stopped'];
         await client.pickup()
-        if ( this.stopped ) throw ['stopped']; // if stopped then quit
+        if ( this.stopped ) throw ['stopped'];
         return true;
     }
 }
 
+// ExplFar3 is a plan that will move the agent to the farthest corner of the map. Currently not used
 class ExplFar3 extends Plan {
 
     static isApplicableTo ( expl3, xm, ym ) {
@@ -784,19 +764,18 @@ class ExplFar3 extends Plan {
         var x2 = values7[maxValueName][0];
         var y2 = values7[maxValueName][1];
 
-        if ( this.stopped ) {reset1=true; throw ['stopped'];} // if stopped then quit
+        if ( this.stopped ) {reset1=true; throw ['stopped'];}
         await this.subIntention( ['go_to', x2, y2] );
         await client.putdown();
-        if ( this.stopped ) {reset1=true; throw ['stopped'];} // if stopped then quit
+        if ( this.stopped ) {reset1=true; throw ['stopped'];}
         reset1 = true;
         prev_expl_p = [xm,ym]
         return true;
     }
-    //async execute ( go_to, x, y ) {await client.move('right')}
 }
 
 
-
+// perform a random different move
 class RandomMove extends Plan {
     static isApplicableTo ( random1) {
         return random1 == 'random1';
@@ -806,7 +785,7 @@ class RandomMove extends Plan {
         var previous = 'right';
         while ( tried.length < 4 ) {
             let current = { up: 'down', right: 'left', down: 'up', left: 'right' }[previous] // backward
-            if ( tried.length < 3 ) { // try haed or turn (before going backward)
+            if ( tried.length < 3 ) { // try ahead or turn (before going backward)
                 //current = [ 'up', 'right', 'down', 'left' ].filter( d => d != current )[ Math.floor(Math.random()*3) ];
                 current = [ 'up', 'right', 'down', 'left' ][ Math.floor(Math.random()*4) ];
                 //this way it goes full randomS
@@ -828,54 +807,13 @@ class RandomMove extends Plan {
     }
 }
 
-class ExecutePDDLPlan extends Plan {
-    constructor(domain, problem) {
-        super();
-        this.domain = domain;
-        this.problem = problem;
-    }
 
-    static isApplicableTo(problem) {
-        // Implement logic to determine if this plan should be used for the given problem
-        // This is a placeholder implementation
-        return true;
-    }
-
-    async execute() {
-        try {
-            // Generate a plan using the online solver
-            var plan = await onlineSolver(this.domain, this.problem);
-            console.log('Plan generated:', plan);
-
-            // Define specific executors for each action in your plan
-            // Example executor for an action named 'lightOn'
-            const executors = [
-                { name: 'lightOn', executor: (l) => console.log('exec lighton ' + l) },
-                // Add more executors for other actions as needed
-            ];
-
-            // Create a PddlExecutor instance with the defined executors
-            const pddlExecutor = new PddlExecutor(...executors);
-
-            // Execute the plan
-            pddlExecutor.exec(plan);
-        } catch (error) {
-            console.log('Error executing PDDL plan:', error);
-        }
-        return true;
-    }
-}
-
-
-// plan classes are added to plan library 
+// Plan classes are added to plan library 
 planLibrary.push( GoPickUp )
 planLibrary.push( BlindMove )
 planLibrary.push( RandomMove )
 planLibrary.push( GoDeliver )
 planLibrary.push( ExplFar3 )
 planLibrary.push( ExplRandom )
-
-//planLibrary.push( ExecutePDDLPlan )
-
 planLibrary.push( PDDL_Move )
 
