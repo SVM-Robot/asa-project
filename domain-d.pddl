@@ -15,8 +15,6 @@
         (down ?t1 ?t2)
     )
     
-
-    
     (:action right
         :parameters (?me ?from ?to)
         :precondition (and
