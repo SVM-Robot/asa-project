@@ -1,37 +1,70 @@
------
-PPDL
-------
+|---------|
+|2 Agents |
+|---------|
+-------------------------------------------------------------------------
+RN:
+-------------------------------------------------------------------------
+- STRATEGIES
+- 2 maps created that splits the map vertical (can be change in 4 or different).
+- map1/map2 used for ag1/ag2 in Expl_Random. Ensuring that they cover different areas. (doesn't matter where they spawn)
+
+- parcel: when spotting a new parcel the two agents will comunicate with ask and on_message, the closest one will go there.
+
+- ag2 as 'hound/henchman/enforcer': 1) blocked deliv. 
+-------------------------------------------------------------------------
+TODO:
+-------------------------------------------------------------------------
+- add global parameters to ag3.js file??
+
+- coordination if stucked in same line like drop and the other gather:
+maybe if collision with team member then drop, move.
+
+
+
+-------------------------------------------------------------------------
+
+
+|---------|
+|PDDL     |
+|---------|
+-------------------------------------------------------------------------
+RN:
+-------------------------------------------------------------------------
+- call to the pddl to find path for any go_to (x,y). So also in pickup, delivery, etc.
 
 -------------------------------------------------------------------------
 PDDL TODO:
 -------------------------------------------------------------------------
-
-
-CHECK COORDINATE!!
-
-
-
-- passing the map (rn it's passed artificially)  					--> should be FIXED
-- check initialize_map (blocked, other things, etc)
-
-- i think rn the map in initialize_map gets recreated all the time. --> should be FIXED
-
-
-
-
-
-
+- pddl move plan what if can't move or stucked? other agents?
 
 
 
 -------------------------------------------------------------------------
-after myAgent.loop() I've put const pathPlanning = new PathPlanning(map);
 
-in class BindMove:
-        //pathPlanning.updateTarget(me.x, me.y, x, y);
-        //pathPlanning.planAndExecute();
 
 -------------------------------------------------------------------------
+
+
+
+|---------|
+|General  |
+|---------|
+-------------------------------------------------------------------------
+RN:
+-------------------------------------------------------------------------
+
+
+-------------------------------------------------------------------------
+TODO:
+-------------------------------------------------------------------------
+- if no parcels sensed or picked up in the last x seconds, do something.
+
+
+
+-------------------------------------------------------------------------
+
+
+
 
 https://github.com/unitn-ASA/Deliveroo.js
 
