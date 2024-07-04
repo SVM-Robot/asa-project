@@ -791,13 +791,17 @@ class GoDeliver2 extends Plan {
                 ignored_parcels.push(pid);
                 }
             await client.putdown();
+            
             await this.subIntention( ['go_to', base_x, base_y] );
 
+            console.log('sayyyyying to ag2 go_to');
+            console.log('base_x:', base_x, 'base_y:', base_y);
             await client.say( '35d84ac07da', {
                 hello: 'go_to',
                 x: base_x,
                 y: base.y,
             } );
+
 
             if ( this.stopped ) {reset1=true; throw ['stopped'];}
             reset1=true;
@@ -1068,5 +1072,6 @@ planLibrary.push( ExplFar3 )
 planLibrary.push( ExplRandom )
 planLibrary.push( StandStill )
 planLibrary.push( PDDL_Move )
+
 planLibrary.push( IsolatedSection )
 

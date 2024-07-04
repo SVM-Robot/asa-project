@@ -328,10 +328,13 @@ client.onMsg( (id, name, msg, reply) => {
             reply(false);
         }
         else {
-            //console.log('u_go_pickup');
             reply(true);
         }
     }
+    else if (msg.hello == 'go_to') {
+        myAgent.push(['go_to_0',msg.x, msg.y]);
+        }
+    
     else if (msg.hello == 'distance_to') {
         if (distance({x:msg.x,y:msg.y},{x:me.x,y:me.y}) < msg.my_d) {
             reply(false);
@@ -363,9 +366,7 @@ client.onMsg( (id, name, msg, reply) => {
             reply(false);
         }
     }
-    else if (msg.hello == 'go_to') {
-        myAgent.push(['go_to_0',msg.x, msg.y]);
-        }
+
 
 });
 
@@ -419,13 +420,10 @@ client.onParcelsSensing( async(parcels) => {
             id: client.id
         } );
 
-        console.log('parcel spotted:', parcel.id, ignored_parcels);
-
         if ( ! parcel.carriedBy && reply && (!ignored_parcels.includes(parcel.id))) {
             options.push( [ 'go_pick_up', parcel.x, parcel.y, parcel.id]);
         }
 
-        reset1 = true;
     }
 
     /** Options filtering*/
@@ -754,6 +752,8 @@ class GoDeliver2 extends Plan {
             await client.putdown();
             await this.subIntention( ['go_to', base_x, base_y] );
 
+            console.log('sayyyyying to ag1 go_to');
+            console.log('base_x:', base_x, 'base_y:', base_y);
             await client.say( 'bb5bb5a2b07', {
                 hello: 'go_to',
                 x: base_x,
@@ -1013,7 +1013,6 @@ class StandStill extends Plan {
     async execute (ms) {
 
         await new Promise(async(resolve) => setTimeout(resolve, 1));
-        //await client.timer(ms);
         return true;
     }
 }
