@@ -2,7 +2,7 @@ import { DeliverooApi } from "@unitn-asa/deliveroo-js-client";
 import { onlineSolver, PddlExecutor, PddlProblem, Beliefset, PddlDomain, PddlAction } from "@unitn-asa/pddl-client";
 import fs from 'fs';
 
-var when_idle = 4;          // 1 for random exploration, 0 for standing still.
+var when_idle = 0;          // 1 for random exploration, 0 for standing still.
                             // 3 for blocking the delivery point, 4 for blocking spawn point.
                             // NOTE: 1 or 0 are gonna stay fixed. If set 3 or 4 they will be tried once and then reset to 1 if 
                             // not right conditions are met.
@@ -201,15 +201,10 @@ function nearestDelivery(x4, y4) {
     }
     const minDistanceIndex = distances.indexOf(Math.min(...distances));
     return delivs[minDistanceIndex];
-    //return [delivs[minDistanceIndex].x,delivs[minDistanceIndex].x];
+
 }
 
 
-
-/**Beliefset revision function*/
-
-
-//const me = {};
 const me = { carrying: new Map() };
 client.onYou( ( {id, name, x, y, score} ) => {
     me.id = id
@@ -217,7 +212,6 @@ client.onYou( ( {id, name, x, y, score} ) => {
     me.x = x
     me.y = y
     me.score = score
-    
 } )
 
 
@@ -328,8 +322,9 @@ client.onAgentsSensing( ( sensed_agents ) => {
 client.onMsg( (id, name, msg, reply) => {
 
     if (msg.hello == 'parcel_spotted') {
-        //console.log('agent2 distance:',distance({x:msg.px,y:msg.py},{x:me.x,y:me.y}));
-        if (distance({x:msg.px,y:msg.py},{x:me.x,y:me.y}) < msg.d) {
+        if (ignored_parcels.includes(msg.pid)){reply(true);}
+
+        else if (distance({x:msg.px,y:msg.py},{x:me.x,y:me.y}) < msg.d) {
             reply(false);
         }
         else {
@@ -337,6 +332,41 @@ client.onMsg( (id, name, msg, reply) => {
             reply(true);
         }
     }
+    else if (msg.hello == 'distance_to') {
+        if (distance({x:msg.x,y:msg.y},{x:me.x,y:me.y}) < msg.my_d) {
+            reply(false);
+        }
+        else {
+            reply(true);
+        }
+    }
+    else if (msg.hello == 'distance_to_low1') {
+        if (distance({x:msg.x,y:msg.y},{x:me.x,y:me.y}) < msg.my_d) {
+            base_x = msg.x;
+            base_y = msg.y;
+            reply(false);
+            console.log('agent2 - base_x:', base_x, 'base_y:', base_y);
+        }
+        else {
+            base_x = msg.x2;
+            base_y = msg.y2;
+            console.log('agent2 - base_x:', base_x, 'base_y:', base_y);
+            reply(true);
+        }   
+    }
+    else if (msg.hello == 'isolated_section') {
+        if (msg.is_sec.some(sec => sec[0] === me.x && sec[1] === me.y)){
+            myAgent.push( ['isolated_section', msg.is_sec]);
+            reply(true);
+        }
+        else {
+            reply(false);
+        }
+    }
+    else if (msg.hello == 'go_to') {
+        myAgent.push(['go_to_0',msg.x, msg.y]);
+        }
+
 });
 
 const parcels = new Map();
@@ -360,6 +390,8 @@ client.onParcelsSensing( async ( perceived_parcels ) => {
 
 
 var reset1 = true;
+
+var ignored_parcels = [];
 
 client.onParcelsSensing( async(parcels) => {
 
@@ -387,9 +419,13 @@ client.onParcelsSensing( async(parcels) => {
             id: client.id
         } );
 
-        if ( ! parcel.carriedBy && reply) {
+        console.log('parcel spotted:', parcel.id, ignored_parcels);
+
+        if ( ! parcel.carriedBy && reply && (!ignored_parcels.includes(parcel.id))) {
             options.push( [ 'go_pick_up', parcel.x, parcel.y, parcel.id]);
         }
+
+        reset1 = true;
     }
 
     /** Options filtering*/
@@ -640,6 +676,109 @@ class Plan {
     }
 }
 
+var base_x;
+var base_y;
+class IsolatedSection extends Plan {
+
+    static isApplicableTo ( isolated_section, isolated_section2 ) {
+        return isolated_section == 'isolated_section';
+    }
+    async execute (isolated_section, isolated_section2) {
+
+        console.log('We are both stucked in this IsolatedSection', isolated_section2);
+        
+        const keysToDelete = [];
+        var map_temp = map;
+        for (const [key, tile] of map_temp.tiles.entries()) {
+          const isInIsolatedSection = isolated_section2.some(coord => coord[0] === tile.x && coord[1] === tile.y);
+          if (!isInIsolatedSection) {
+            keysToDelete.push(key);
+          }
+        }
+        keysToDelete.forEach(key => map_temp.tiles.delete(key));
+        map2 = map_temp;
+
+        console.log('substituing GoDeliver with GoDeliver2 in planLibrary');
+        planLibrary.unshift( GoDeliver2 );
+        //console.log('planLibrary:', planLibrary);
+        //planLibrary.unshift( GoDeliver2 );
+
+        await new Promise(async(resolve) => setTimeout(resolve, 9));
+        
+        return true;
+    }
+}
+
+class GoDeliver2 extends Plan {
+
+    static isApplicableTo ( go_deliv2, x, y,) {
+        return go_deliv2 == 'deliv1';
+    }
+    async execute ( go_deliv2, x, y ) {
+        if ( this.stopped ) {reset1=true; throw ['stopped'];}
+
+        let randomIndex = Math.floor(Math.random() * map2.deliv().length);
+        let selectedPoint = map2.deliv()[randomIndex];
+        var x_r = selectedPoint.x;
+        var y_r = selectedPoint.y;
+
+        var reply;
+        var multi_agents = 1;
+        if (multi_agents == 1){
+            reply = await client.ask( 'bb5bb5a2b07', {
+                hello: 'distance_to',
+                x: x_r,
+                y: y_r,
+                my_d: distance({x:x_r,y:y_r},{x:me.x,y:me.y})
+            } );
+        } else {
+            reply = false;
+        }
+
+        if (reply) {
+            if ( this.stopped ) {reset1=true; throw ['stopped'];}
+            await this.subIntention( ['go_to', x_r, y_r] );
+            await client.putdown();
+            if ( this.stopped ) {reset1=true; throw ['stopped'];}
+            reset1=true;
+            return true;
+        }
+
+        else {
+            if ( this.stopped ) {reset1=true; throw ['stopped'];}
+            console.log(me.carrying.keys());
+            for (let pid of me.carrying.keys()){
+                console.log('pid:', pid);
+                ignored_parcels.push(pid);
+                }
+            await client.putdown();
+            await this.subIntention( ['go_to', base_x, base_y] );
+
+            await client.say( 'bb5bb5a2b07', {
+                hello: 'go_to',
+                x: base_x,
+                y: base.y,
+            } );
+
+            if ( this.stopped ) {reset1=true; throw ['stopped'];}
+            reset1=true;
+            return true;
+        }
+    }
+}
+
+class GoTo extends Plan {
+
+    static isApplicableTo ( go_to_0, x, y) {
+        return go_to_0 == 'go_to_0';
+    }
+    async execute ( go_to_0, x, y ) {
+        if ( this.stopped ) throw ['stopped'];
+        await this.subIntention( ['go_to', x, y] );
+        if ( this.stopped ) throw ['stopped'];
+        return true;
+    }
+}
 
 class GoPickUp extends Plan {
 
@@ -873,7 +1012,7 @@ class StandStill extends Plan {
     }
     async execute (ms) {
 
-        await new Promise(async(resolve) => setTimeout(resolve, ms));
+        await new Promise(async(resolve) => setTimeout(resolve, 1));
         //await client.timer(ms);
         return true;
     }
@@ -944,6 +1083,8 @@ class BlockSpawn extends Plan {
 
 
 // Plan classes are added to plan library 
+planLibrary.push( GoTo )
+
 planLibrary.push( GoPickUp )
 planLibrary.push( BlindMove )
 planLibrary.push( RandomMove )
@@ -955,7 +1096,7 @@ planLibrary.push( PDDL_Move )
 
 planLibrary.push( BlockDelivery )
 planLibrary.push( BlockSpawn )
-
+planLibrary.push( IsolatedSection )
 
 
 

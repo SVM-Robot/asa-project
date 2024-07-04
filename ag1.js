@@ -1,9 +1,12 @@
 import { DeliverooApi } from "@unitn-asa/deliveroo-js-client";
 import { onlineSolver, PddlExecutor, PddlProblem, Beliefset, PddlDomain, PddlAction } from "@unitn-asa/pddl-client";
 import fs from 'fs';
+import { findIsolatedSections } from './functions2.js';
+import { basename } from "path";
 
 
-const when_idle = 1;        // 1 for random exploration, 0 for standing still.
+
+const when_idle = 0;        // 1 for random exploration, 0 for standing still.
 const multi_agents = 1;     // 1 for multi-agent, 0 for single-agent.
                             // setting it to 0 will: not split the map, not comunicate with the other agent.
 
@@ -36,6 +39,7 @@ const executors = [
     { name: 'down', executor: () => client.move('down')},
 ];
 
+var isolatedSections;
 class PathPlanning {
 
     constructor() {
@@ -52,7 +56,7 @@ class PathPlanning {
     // It firsts recreate internally the map from the tiles received from the server.
     // After that 'converts' it to PDDL objects and initial state.
     // It gets called only once since map stays the same during the game.
-    initializeMap() {
+    async initializeMap() {
 
         console.log('MAP INITIALIZATION');
         const blockedTiles = map.blkd();
@@ -69,7 +73,30 @@ class PathPlanning {
             matrix[tile.x][tile.y] = 2;
             });
 
-        // !!
+
+
+        isolatedSections = findIsolatedSections(matrix);
+        console.log('Isolated sections:', isolatedSections);
+
+        const isInIsolatedSection = isolatedSections.find(section => {
+            return section.some(tile => tile.x === me.x && tile.y === me.y);
+        });
+        console.log('Is my position inside isolated sections?', isInIsolatedSection.length > 0);
+
+        if(isInIsolatedSection.length > 0) {
+            var reply;
+            if (multi_agents == 1){
+                reply = await client.ask( '35d84ac07da', {
+                    hello: 'isolated_section',
+                    is_sec: isInIsolatedSection,
+                } );
+            } else {
+                reply = false;
+            }
+        }
+        if (reply) {
+            myAgent.push( ['isolated_section', isInIsolatedSection]);
+        }
     
         //this.map = matrix.slice().reverse().map(row => row.slice());
         this.map = matrix;
@@ -264,6 +291,7 @@ client.onMap( (width, height, tiles) => {
 
     if (multi_agents == 0 || split_map == 0) {map1 = map};
 
+
 } )
 
 
@@ -340,6 +368,17 @@ client.onMsg( (id, name, msg, reply) => {
             reply(true);
         }
     }
+    else if (msg.hello == 'distance_to') {
+        if (distance({x:msg.x,y:msg.y},{x:me.x,y:me.y}) < msg.my_d) {
+            reply(false);
+        }
+        else {
+            reply(true);
+        }
+    }
+    else if (msg.hello == 'go_to') {
+        myAgent.push(['go_to_0',msg.x, msg.y]);
+        }
 });
 
 const parcels = new Map();
@@ -364,6 +403,8 @@ client.onParcelsSensing( async ( perceived_parcels ) => {
 
 var reset1 = true;
 
+var ignored_parcels = [];
+
 client.onParcelsSensing( async(parcels) => {
 
     const options = []
@@ -377,6 +418,7 @@ client.onParcelsSensing( async(parcels) => {
         // removed the condition on distance from agents. From challenge it was observed that was not good: 
         // agents are not moving, or standing still or if other agents have a similar behaviour, then the condition is not useful.
 
+        
         var reply;
         if (multi_agents == 1){
             reply = await client.ask( '35d84ac07da', {
@@ -393,7 +435,7 @@ client.onParcelsSensing( async(parcels) => {
         }
 
 
-        if ( ! parcel.carriedBy && reply) {
+        if ( ! parcel.carriedBy && reply && (!ignored_parcels.includes(parcel.id))) {
             options.push( [ 'go_pick_up', parcel.x, parcel.y, parcel.id]);
         }
     }
@@ -645,6 +687,138 @@ class Plan {
     }
 }
 
+var base_x;
+var base_y;
+class IsolatedSection extends Plan {
+
+    static isApplicableTo ( isolated_section, isolated_section2 ) {
+        return isolated_section == 'isolated_section';
+    }
+    async execute (isolated_section, isolated_section2) {
+
+        console.log('We are both stucked in this IsolatedSection', isolated_section2);
+        
+        const keysToDelete = [];
+        var map_temp = map;
+        for (const [key, tile] of map_temp.tiles.entries()) {
+          const isInIsolatedSection = isolated_section2.some(coord => coord[0] === tile.x && coord[1] === tile.y);
+          if (!isInIsolatedSection) {
+            keysToDelete.push(key);
+          }
+        }
+        keysToDelete.forEach(key => map_temp.tiles.delete(key));
+        map1 = map_temp;
+
+        var l = (isolated_section2.length) - 1;
+        var c1x = isolated_section2[0][0];
+        var c1y = isolated_section2[0][1];
+        var c2x = isolated_section2[l][0];
+        var c2y = isolated_section2[l][1];
+
+        var reply;
+        if (multi_agents == 1){
+            reply = await client.ask( '35d84ac07da', {
+                hello: 'distance_to_low1',
+                x: c1x,
+                y: c1y,
+                x2: c2x,
+                y2: c2y,
+                my_d: distance({x:c1x,y:c1y},{x:me.x,y:me.y}),
+            } );
+        } else {
+            reply = false;
+        }
+
+        if (reply) {
+            base_x = c1x;
+            base_y = c1y;
+            console.log('agent1 - base_x:', base_x, 'base_y:', base_y);
+        } else {
+            base_x = c2x;
+            base_y = c2y;
+            console.log('agent1 - base_x:', base_x, 'base_y:', base_y);
+        }
+
+        console.log('substituing GoDeliver with GoDeliver2 in planLibrary');
+        planLibrary.unshift( GoDeliver2 );
+
+        await new Promise(async(resolve) => setTimeout(resolve, 9));
+
+        return true;
+    }
+}
+
+
+class GoDeliver2 extends Plan {
+
+    static isApplicableTo ( go_deliv2, x, y,) {
+        return go_deliv2 == 'deliv1';
+    }
+    async execute ( go_deliv2, x, y ) {
+        if ( this.stopped ) {reset1=true; throw ['stopped'];}
+
+        let randomIndex = Math.floor(Math.random() * map1.deliv().length);
+        let selectedPoint = map1.deliv()[randomIndex];
+        var x_r = selectedPoint.x;
+        var y_r = selectedPoint.y;
+
+        var reply;
+        if (multi_agents == 1){
+            reply = await client.ask( '35d84ac07da', {
+                hello: 'distance_to',
+                x: x_r,
+                y: y_r,
+                my_d: distance({x:x_r,y:y_r},{x:me.x,y:me.y})
+            } );
+        } else {
+            reply = false;
+        }
+
+        if (reply) {
+            if ( this.stopped ) {reset1=true; throw ['stopped'];}
+            await this.subIntention( ['go_to', x_r, y_r] );
+            await client.putdown();
+            if ( this.stopped ) {reset1=true; throw ['stopped'];}
+            reset1=true;
+            return true;
+        }
+
+        else {
+            if ( this.stopped ) {reset1=true; throw ['stopped'];}
+            console.log(me.carrying.keys());
+            for (let pid of me.carrying.keys()){
+                console.log('pid:', pid);
+                ignored_parcels.push(pid);
+                }
+            await client.putdown();
+            await this.subIntention( ['go_to', base_x, base_y] );
+
+            await client.say( '35d84ac07da', {
+                hello: 'go_to',
+                x: base_x,
+                y: base.y,
+            } );
+
+            if ( this.stopped ) {reset1=true; throw ['stopped'];}
+            reset1=true;
+            return true;
+        }
+    }
+}
+
+
+class GoTo extends Plan {
+
+    static isApplicableTo ( go_to_0, x, y) {
+        return go_to_0 == 'go_to_0';
+    }
+    async execute ( go_to_0, x, y ) {
+        if ( this.stopped ) throw ['stopped'];
+        await this.subIntention( ['go_to', x, y] );
+        if ( this.stopped ) throw ['stopped'];
+        return true;
+    }
+}
 
 class GoPickUp extends Plan {
 
@@ -876,7 +1050,7 @@ class StandStill extends Plan {
     static isApplicableTo ( standstill) {
         return standstill == 'standstill';
     }
-    async execute () {
+    async execute (ms) {
 
         await new Promise(async(resolve) => setTimeout(resolve, 1));
         return true;
@@ -884,6 +1058,8 @@ class StandStill extends Plan {
 }
 
 // Plan classes are added to plan library 
+planLibrary.push( GoTo )
+
 planLibrary.push( GoPickUp )
 planLibrary.push( BlindMove )
 planLibrary.push( RandomMove )
@@ -892,4 +1068,5 @@ planLibrary.push( ExplFar3 )
 planLibrary.push( ExplRandom )
 planLibrary.push( StandStill )
 planLibrary.push( PDDL_Move )
+planLibrary.push( IsolatedSection )
 

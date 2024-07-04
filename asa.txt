@@ -10,7 +10,7 @@ RN:
 
 - parcel: when spotting a new parcel the two agents will comunicate with ask and on_message, the closest one will go there.
 
-- ag2 as 'hound/henchman/enforcer': 1) blocked deliv. 
+- ag2 as 'hound/henchman/enforcer': 1) blocked deliv. 2) blocked spawn (could be improved)
 -------------------------------------------------------------------------
 TODO:
 -------------------------------------------------------------------------

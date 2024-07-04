@@ -21,5 +21,5 @@ const runScript0 = (script) => {
   };
 
   
-runScript0('ag1.js');
-runScript0('ag2.js');
+runScript('ag1.js');
+runScript('ag2.js');
