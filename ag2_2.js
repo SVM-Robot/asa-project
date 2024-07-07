@@ -7,7 +7,6 @@ const args = parseArgs(process.argv.slice(2));
 
 // flagging variables
 const when_idle = 1;        
-const multi_agents = 0;
 var split_map = 1;          
 const use_pddl = 0;
 // when_idle: 1 for random exploration, 0 for standing still.
@@ -307,10 +306,6 @@ client.onMsg( (id, name, msg, reply) => {
             reply(true);
         }
     }
-    else if (msg.hello == 'go_to') {
-        myAgent.push(['go_to_0',msg.x, msg.y]);
-        }
-    
     else if (msg.hello == 'distance_to') {
         if (distance({x:msg.x,y:msg.y},{x:me.x,y:me.y}) < msg.my_d) {
             reply(false);
@@ -319,6 +314,11 @@ client.onMsg( (id, name, msg, reply) => {
             reply(true);
         }
     }
+    else if (msg.hello == 'go_to') {
+        myAgent.push(['go_to_0',msg.x, msg.y]);
+        }
+    
+
     else if (msg.hello == 'distance_to_low1') {
         if (distance({x:msg.x,y:msg.y},{x:me.x,y:me.y}) < msg.my_d) {
             base_x = msg.x;
@@ -437,8 +437,6 @@ client.onParcelsSensing( async(parcels) => {
         reset1 = true;
     }
 } )
-
-const beliefset = new Map();
 
 // Intention revision loop
 class IntentionRevision {
@@ -943,7 +941,7 @@ class ExplFar3 extends Plan {
 
         if ( this.stopped ) {reset1=true; throw ['stopped'];}
         await this.subIntention( ['go_to', x2, y2] );
-        await client.putdown();
+        await client.pickpup();
         if ( this.stopped ) {reset1=true; throw ['stopped'];}
         reset1 = true;
         prev_expl_p = [xm,ym]

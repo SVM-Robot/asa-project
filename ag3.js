@@ -19,6 +19,5 @@ const runScript0 = (script) => {
   };
 
   
-
 runScript('ag2_1.js');
 runScript('ag2_2.js');

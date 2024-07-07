@@ -14,7 +14,7 @@ const args = parseArgs(process.argv.slice(2));
 const when_idle = 1;        
 const multi_agents = 0;
 var split_map = 0;          
-const use_pddl = 0;
+const use_pddl = 1;
 // when_idle: 1 for random exploration, 0 for standing still.
 // multi_agents: 1 for multi-agent, 0 for single-agent. setting it to 0 will: not split the map, not comunicate with the other agent.
 // split_map: 1 for split map, 0 for single map.
@@ -60,7 +60,7 @@ class PathPlanning {
     }
 
     // The initializeMap function is used to create the objects and initial state of the PDDL problem.
-    // It first recreate internally the map from the tiles received from the server.
+    // It first recreates internally the map from the tiles received from the server.
     // After that, it 'converts' it to PDDL objects and initial state.
     // It gets called only once since map stays the same during the game.
     async initializeMap() {
@@ -432,8 +432,6 @@ client.onParcelsSensing( async(parcels) => {
         reset1 = true;
     }
 } )
-
-const beliefset = new Map();
 
 // Intention revision loop
 class IntentionRevision {
@@ -961,7 +959,7 @@ class ExplFar3 extends Plan {
 
         if ( this.stopped ) {reset1=true; throw ['stopped'];}
         await this.subIntention( ['go_to', x2, y2] );
-        await client.putdown();
+        await client.pickup();
         if ( this.stopped ) {reset1=true; throw ['stopped'];}
         reset1 = true;
         prev_expl_p = [xm,ym]

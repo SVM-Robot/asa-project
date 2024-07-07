@@ -325,7 +325,9 @@ client.onAgentsSensing( ( sensed_agents ) => {
 client.onMsg( (id, name, msg, reply) => {
 
     if (msg.hello == 'parcel_spotted') {
-        if (distance({x:msg.px,y:msg.py},{x:me.x,y:me.y}) <= msg.d) {
+        if (ignored_parcels.includes(msg.pid)){reply(true);}
+
+        else if (distance({x:msg.px,y:msg.py},{x:me.x,y:me.y}) < msg.d) {
             reply(false);
         }
         else {
@@ -432,7 +434,6 @@ client.onParcelsSensing( async(parcels) => {
     }
 } )
 
-const beliefset = new Map();
 
 // Intention revision loop
 class IntentionRevision {
@@ -960,7 +961,7 @@ class ExplFar3 extends Plan {
 
         if ( this.stopped ) {reset1=true; throw ['stopped'];}
         await this.subIntention( ['go_to', x2, y2] );
-        await client.putdown();
+        await client.pickup();
         if ( this.stopped ) {reset1=true; throw ['stopped'];}
         reset1 = true;
         prev_expl_p = [xm,ym]

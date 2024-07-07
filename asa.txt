@@ -72,7 +72,7 @@ TODO:
 // Things emerging from the 1st challenge:
 // - is spawnable? something about parcels always spawning in same place --> DONE
 // - remove condition if other agent is too close? --> DONE
-// - collisions if path is size=1? Add a ruke --> >TODO (if needed)
+// - collisions if path is size=1? Add a rule --> >TODO (if needed)
 
 
 
