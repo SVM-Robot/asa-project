@@ -63,17 +63,30 @@ export function findIsolatedSections(map) {
     return isolatedSections;
 }
 
-const map = [
-    [2, 1, 1, 1, 0, 2, 0, 1, 1, 2],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
-    [1, 1, 1, 1, 0, 1, 0, 1, 1, 1],
-    [2, 1, 1, 1, 0, 2, 0, 1, 1, 2]
-]
 
-//console.log(findIsolatedSections(map));
+
+
+export function find_my_isolated_section(isolated, x, y) {
+    for (let i = 0; i < isolated.length; i++) {
+        for (let j = 0; j < isolated[i].length; j++) {
+            if (isolated[i][j][0] === x && isolated[i][j][1] === y) {
+                return isolated[i];
+            }
+        }
+    }
+    return [];
+}
+
+
+// extra
+export function parseArgs(argv) {
+    const args = {};
+    argv.forEach((arg, index) => {
+        if (arg.startsWith('--')) {
+            const key = arg.slice(2);
+            const value = argv[index + 1] && !argv[index + 1].startsWith('--') ? argv[index + 1] : true;
+            args[key] = value;
+        }
+    });
+    return args;
+}

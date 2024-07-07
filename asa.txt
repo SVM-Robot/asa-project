@@ -14,10 +14,10 @@ RN:
 -------------------------------------------------------------------------
 TODO:
 -------------------------------------------------------------------------
-- add global parameters to ag3.js file??
 
-- coordination if stucked in same line like drop and the other gather:
-maybe if collision with team member then drop, move.
+- isolated: 1) why it works only with svm_2 on right? (minimal)
+			2) if spawn in last tile!
+			3) edge case if ag1 not in isolated but ag2 is.
 
 
 
@@ -57,11 +57,27 @@ RN:
 -------------------------------------------------------------------------
 TODO:
 -------------------------------------------------------------------------
+- notes on challenges testing:
+	- challenge 31: works only with pddl (blocked), with no parcel decading and pddl time, basically useless.
+
+- something interacting with other agents??
+- something with parcel decading interval?
 - if no parcels sensed or picked up in the last x seconds, do something.
 
 
 
 -------------------------------------------------------------------------
+
+
+// Things emerging from the 1st challenge:
+// - is spawnable? something about parcels always spawning in same place --> DONE
+// - remove condition if other agent is too close? --> DONE
+// - collisions if path is size=1? Add a ruke --> >TODO (if needed)
+
+
+
+-------------------------------------------------------------------------
+
 
 
 

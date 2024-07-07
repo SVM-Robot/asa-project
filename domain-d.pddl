@@ -7,7 +7,6 @@
         (agent ?a)
         (parcel ?p)
         (me ?a)
-        ;;(at ?agentOrParcel ?tile)
         (at ?me ?tile)
         (right ?t1 ?t2)
         (left ?t1 ?t2)
