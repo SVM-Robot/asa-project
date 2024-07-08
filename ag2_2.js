@@ -9,7 +9,7 @@ const args = parseArgs(process.argv.slice(2));
 const when_idle = 1;        
 var split_map = 1;          
 const use_pddl = 0;
-// when_idle: 1 for random exploration, 0 for standing still.
+// when_idle: 1 for random exploration, 0 for standing still. 3 for blocking delivery, 4 for blocking spawn.
 // multi_agents: 1 for multi-agent, 0 for single-agent. setting it to 0 will: not split the map, not comunicate with the other agent.
 // split_map: 1 for split map, 0 for single map.
 // use_pddl: 0 for no pddl, 1 for pddl. Switching it to 1 will use pddl for any movement to a specific tile.
@@ -72,10 +72,10 @@ class PathPlanning {
             // inside the initializeMap function, we also check for isolated sections and if the agent is inside one of them.
             // If agent is inside one, some things changes. If both agents are inside the same isolated section, some other things change.
             isolatedSections = findIsolatedSections(matrix);
-            console.log('Isolated sections:', isolatedSections);
+            //console.log('Isolated sections:', isolatedSections);
     
             isInIsolatedSection = find_my_isolated_section(isolatedSections, me.x, me.y);
-            console.log('Agent 2: Is my position inside isolated sections?', isInIsolatedSection.length > 0);
+            //console.log('Agent 2: Is my position inside isolated sections?', isInIsolatedSection.length > 0);
        
         this.map = matrix;
 
@@ -380,9 +380,6 @@ client.onParcelsSensing( async(parcels) => {
         // if ( ! parcel.carriedBy && distance({x:parcel.x,y:parcel.y},{x:me.x,y:me.y}) <= Math.min(...d5)) {
         // removed the condition on distance from agents. From challenge it was observed that was not good: 
         // agents are not moving, or standing still or if other agents have a similar behaviour, then the condition is not useful.
-        //console.log(partner1);
-        //const partner1_dist = distance({x:parcel.x,y:parcel.y},{x:partner1[1].x,y:partner1[1].y});
-        // && distance({x:parcel.x,y:parcel.y},{x:me.x,y:me.y}) <= partner1_dist
 
         var reply = true;
         if (isolated_single == 0) {
@@ -639,7 +636,7 @@ class IsolatedSectionSingle extends Plan {
     }
     async execute (isolated_section, isolated_section2) {
 
-        console.log('Agent1 stucked in this IsolatedSection', isolated_section2);
+        console.log('Agent2 stucked in this IsolatedSection', isolated_section2);
         
         const keysToDelete = [];
         var map_temp = map;
@@ -721,9 +718,7 @@ class GoDeliver2 extends Plan {
 
         else {
             if ( this.stopped ) {reset1=true; throw ['stopped'];}
-            console.log(me.carrying.keys());
             for (let pid of me.carrying.keys()){
-                console.log('pid:', pid);
                 ignored_parcels.push(pid);
                 }
 
@@ -852,7 +847,7 @@ class BlindMove extends Plan {
     // simple backtracking mechanism introduced to avoid getting stuck:
     // it will perform n (=10) random moves and then continue with the original path.
     async backtrack() {
-        console.log('BACKTRACKING')
+        //console.log('BACKTRACKING')
         for (let i = 0; i < 10; i++) {
             const d = ['right', 'left', 'up', 'down'][Math.floor(Math.random() * 4)];
             await client.move(d);
@@ -1003,7 +998,7 @@ class BlockDelivery extends Plan {
     }
     async execute () {
 
-        if (map.deliv > 5 || map2.deliv().length == 0 || map2.deliv().length > 2){
+        if (map.deliv().length > 5 || map2.deliv().length == 0 || map2.deliv().length > 2){
             console.log('No delivs to block');
             when_idle = 4;
             await this.subIntention( ['block_spawn', me.x, me.y] );
@@ -1035,7 +1030,7 @@ class BlockSpawn extends Plan {
     async execute () {
 
 
-        if (map.spwn().length > 8 || map2.spwn().length == 0 || map2.spwn().length > 4){
+        if (map.spwn().length > 5 || map2.spwn().length == 0 || map2.spwn().length > 2){
             console.log('No spawns to block');
             when_idle = 1;
             await this.subIntention( ['expl_rand', me.x, me.y]);

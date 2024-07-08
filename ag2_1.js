@@ -83,10 +83,10 @@ class PathPlanning {
         // inside the initializeMap function, we also check for isolated sections and if the agent is inside one of them.
         // If agent is inside one, some things changes. If both agents are inside the same isolated section, some other things change.
         isolatedSections = findIsolatedSections(matrix);
-        console.log('Isolated sections:', isolatedSections);
+        //console.log('Isolated sections:', isolatedSections);
 
         var isInIsolatedSection = find_my_isolated_section(isolatedSections, me.x, me.y);
-        console.log('Agent1: Is my position inside isolated sections?', isInIsolatedSection.length > 0);
+        //console.log('Agent1: Is my position inside isolated sections?', isInIsolatedSection.length > 0);
 
         if(isInIsolatedSection.length > 0) {
             var reply;
@@ -693,11 +693,9 @@ class IsolatedSection extends Plan {
         if (reply) {
             base_x = c1x;
             base_y = c1y;
-            console.log('agent1 - base_x:', base_x, 'base_y:', base_y);
         } else {
             base_x = c2x;
             base_y = c2y;
-            console.log('agent1 - base_x:', base_x, 'base_y:', base_y);
         }
 
         console.log('substituing GoDeliver with GoDeliver2 in planLibrary');
@@ -743,9 +741,8 @@ class GoDeliver2 extends Plan {
 
         else {
             if ( this.stopped ) {reset1=true; throw ['stopped'];}
-            console.log(me.carrying.keys());
+
             for (let pid of me.carrying.keys()){
-                console.log('pid:', pid);
                 ignored_parcels.push(pid);
                 }
 
@@ -873,7 +870,7 @@ class BlindMove extends Plan {
     // simple backtracking mechanism introduced to avoid getting stuck:
     // it will perform n (=10) random moves and then continue with the original path.
     async backtrack() {
-        console.log('BACKTRACKING')
+        //console.log('BACKTRACKING')
         for (let i = 0; i < 10; i++) {
             const d = ['right', 'left', 'up', 'down'][Math.floor(Math.random() * 4)];
             await client.move(d);
