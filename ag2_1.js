@@ -1013,6 +1013,7 @@ class StandStill extends Plan {
 
 
 // Plan classes are added to plan library 
+// Agent1 is equipped with this PlanLibrary
 planLibrary.push( GoTo )
 
 planLibrary.push( GoPickUp )

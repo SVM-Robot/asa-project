@@ -1054,6 +1054,7 @@ class BlockSpawn extends Plan {
 
 
 // Plan classes are added to plan library 
+// Agent2 is equipped with this PlanLibrary
 planLibrary.push( GoTo )
 
 planLibrary.push( GoPickUp )
