@@ -169,7 +169,7 @@ class PathPlanning {
 
         if (this.isPlanning) {
             console.log('A plan is already in execution. Please wait or cancel the current plan before starting a new one.');
-            // here it woould be possible to drop the new plan or to queue it or to cancel the current one.
+            // here it would be possible to drop the new plan or to queue it or to cancel the current one.
             return; // Exit if a plan is currently being executed
             }
         this.isPlanning = true; // Mark as planning started
